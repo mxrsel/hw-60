@@ -1,35 +1,73 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, {useEffect, useState} from 'react';
+import MessageList from './components/MessageList.tsx';
+import MessageInput from './components/MessageInput.tsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+const apiLink = 'http://146.185.154.90:8000/messages';
 
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+export interface Message {
+  id: string;
+  message: string;
+  author: string;
+  datetime: string;
 }
 
-export default App
+const App: React.FC = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [author] = useState('Adm');
+  const [lastSendTime, setLastSendTime] = useState('');
+
+  const fetchMessages = async () => {
+    let url = apiLink;
+    if (lastSendTime) {
+      url += `?datetime=${lastSendTime}`;
+    }
+    try{
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.log("Network response wasn't ok");
+      }
+      const data = await response.json();
+      setMessages(data);
+      if (data.length > 0) {
+        setLastSendTime(data[data.length -1].datetime);
+      }
+    }catch (error) {
+      console.log('Error fetching messages:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMessages();
+    const interval = setInterval(fetchMessages,3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const sendMessage = async (message: string) => {
+    try {
+      const response = await fetch (apiLink, {
+        method: 'POST',
+        body: JSON.stringify({
+          message,
+          author,
+        }),
+      });
+      if (!response.ok) {
+        console.log("Network response wasn't ok");
+      }
+      console.log('Message sent:', await response.json());
+       await fetchMessages();
+    }catch (error) {
+      console.log('Error sending message:', error);
+    }
+
+  };
+    return (
+        <div className='App'>
+            <h1>Chat App</h1>
+          <MessageList messages={messages}/>
+          <MessageInput onSendMessage={sendMessage}/>
+        </div>
+    );
+};
+
+export default App;
